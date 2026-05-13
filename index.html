@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth0 Login Flow | Secure Authentication Demo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#0a0a0f 0%,#12102a 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;color:#e0e0e0}
+        .container{max-width:480px;width:100%;padding:20px}
+        .card{background:rgba(255,255,255,0.05);backdrop-filter:blur(20px);border:1px solid rgba(99,93,255,0.3);border-radius:24px;padding:48px 40px;text-align:center;box-shadow:0 25px 60px rgba(0,0,0,0.4)}
+        .logo{font-size:3rem;margin-bottom:16px}
+        h1{font-size:1.8rem;font-weight:800;margin-bottom:8px;background:linear-gradient(135deg,#635dff,#00d4ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .subtitle{color:#888;font-size:0.95rem;margin-bottom:36px;line-height:1.5}
+        .btn{display:inline-flex;align-items:center;gap:10px;padding:14px 28px;border-radius:12px;font-size:1rem;font-weight:600;cursor:pointer;border:none;transition:all 0.3s;width:100%;justify-content:center;margin-bottom:12px}
+        .btn-primary{background:linear-gradient(135deg,#635dff,#4f3fff);color:white}
+        .btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(99,93,255,0.5)}
+        .btn-outline{background:transparent;border:1px solid rgba(255,255,255,0.2);color:#ccc}
+        .btn-outline:hover{border-color:#635dff;color:#635dff}
+        .profile{display:none}
+        .avatar{width:90px;height:90px;border-radius:50%;border:3px solid #635dff;margin:0 auto 20px;display:block;object-fit:cover}
+        .user-name{font-size:1.5rem;font-weight:700;margin-bottom:6px}
+        .user-email{color:#888;font-size:0.9rem;margin-bottom:8px}
+        .badge{display:inline-block;padding:4px 14px;background:rgba(99,93,255,0.2);border:1px solid rgba(99,93,255,0.4);border-radius:20px;font-size:0.8rem;color:#635dff;margin-bottom:28px}
+        .divider{height:1px;background:rgba(255,255,255,0.1);margin:24px 0}
+        .info-row{display:flex;justify-content:space-between;padding:10px 0;font-size:0.85rem;color:#888}
+        .info-row span:last-child{color:#ccc;font-weight:500}
+        .powered{color:#555;font-size:0.75rem;margin-top:24px}
+        .powered a{color:#635dff;text-decoration:none}
+        #login-section{display:block}
+        .feature-list{text-align:left;margin-bottom:28px}
+        .feature-item{display:flex;align-items:center;gap:10px;padding:8px 0;font-size:0.9rem;color:#999;border-bottom:1px solid rgba(255,255,255,0.05)}
+        .feature-item:last-child{border-bottom:none}
+        .feature-icon{font-size:1.1rem}
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card">
+        <div class="logo">🔐</div>
+        <h1>Auth0 Login Flow</h1>
+        <p class="subtitle">Secure authentication powered by Auth0 — industry-standard identity platform</p>
+
+        <div id="login-section">
+            <div class="feature-list">
+                <div class="feature-item"><span class="feature-icon">✅</span> OAuth 2.0 / OpenID Connect</div>
+                <div class="feature-item"><span class="feature-icon">🛡️</span> Universal Login Page</div>
+                <div class="feature-item"><span class="feature-icon">🔑</span> JWT Token Authentication</div>
+                <div class="feature-item"><span class="feature-icon">🌐</span> Social Login Support</div>
+            </div>
+            <button class="btn btn-primary" onclick="login()">
+                <span>🔑</span> Sign In with Auth0
+            </button>
+            <p class="powered">Secured by <a href="https://auth0.com" target="_blank">Auth0</a> — Built for MLH Global Hack Week GenAI 2025</p>
+        </div>
+
+        <div id="profile" class="profile">
+            <img id="avatar" class="avatar" src="" alt="Profile Picture">
+            <div class="badge">✅ Authenticated</div>
+            <div class="user-name" id="user-name"></div>
+            <div class="user-email" id="user-email"></div>
+            <div class="divider"></div>
+            <div class="info-row"><span>Auth Provider</span><span>Auth0</span></div>
+            <div class="info-row"><span>Protocol</span><span>OpenID Connect</span></div>
+            <div class="info-row"><span>Token Type</span><span>JWT (RS256)</span></div>
+            <div class="info-row"><span>Session</span><span id="session-time">Active</span></div>
+            <div class="divider"></div>
+            <button class="btn btn-outline" onclick="logout()">🚪 Sign Out</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let auth0Client=null;
+const config={
+    domain:'dev-ayanlogix.us.auth0.com',
+    clientId:'YOUR_CLIENT_ID',
+    authorizationParams:{redirect_uri:window.location.origin}
+};
+async function initAuth0(){
+    try{
+        auth0Client=await auth0.createAuth0Client(config);
+        if(location.search.includes('code=')&&location.search.includes('state=')){
+            await auth0Client.handleRedirectCallback();
+            window.history.replaceState({},document.title,'/');
+        }
+        await updateUI();
+    }catch(e){console.warn('Auth0 demo mode:',e.message);}
+}
+async function updateUI(){
+    const isAuth=await auth0Client?.isAuthenticated()?.catch(()=>false)||false;
+    document.getElementById('login-section').style.display=isAuth?'none':'block';
+    document.getElementById('profile').style.display=isAuth?'block':'none';
+    if(isAuth){
+        const user=await auth0Client.getUser();
+        document.getElementById('avatar').src=user.picture||'https://via.placeholder.com/90';
+        document.getElementById('user-name').textContent=user.name;
+        document.getElementById('user-email').textContent=user.email;
+        document.getElementById('session-time').textContent=new Date().toLocaleTimeString();
+    }
+}
+async function login(){await auth0Client?.loginWithRedirect();}
+async function logout(){await auth0Client?.logout({logoutParams:{returnTo:window.location.origin}});}
+initAuth0();
+</script>
+</body>
+</html>
